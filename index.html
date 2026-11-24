@@ -33,6 +33,17 @@
             <div class="field"><label for="amount">Сумма <span class="required">*</span></label><div class="amount-wrap"><input id="amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" maxlength="16" required autocomplete="off" aria-describedby="form-error" /><span>₸</span></div></div>
             <div class="field"><label for="category">Категория <span class="required">*</span></label><select id="category" name="category" required><option value="Еда">Еда</option><option value="Транспорт">Транспорт</option><option value="Дом">Дом</option><option value="Другое">Другое</option></select></div>
             <div class="field"><label for="date">Дата <span class="required">*</span></label><input id="date" name="date" type="date" required /></div>
+            <div class="period-field">
+              <span id="period-label" class="period-label">Показать историю за период</span>
+              <div id="period-buttons" class="period-buttons" role="group" aria-labelledby="period-label">
+                <button type="button" data-days="0" aria-pressed="true">Всё время</button>
+                <button type="button" data-days="1" aria-pressed="false">Сутки</button>
+                <button type="button" data-days="7" aria-pressed="false">7 дней</button>
+                <button type="button" data-days="14" aria-pressed="false">14 дней</button>
+                <button type="button" data-days="30" aria-pressed="false">Месяц</button>
+              </div>
+              <p id="period-hint" class="period-hint" role="status">Все траты. Итог сверху — за текущий месяц.</p>
+            </div>
             <div class="field comment-field"><label for="comment">Комментарий <span class="optional">необязательно</span></label><input id="comment" name="comment" type="text" placeholder="Например, кофе по дороге на работу" maxlength="250" /></div>
           </div>
           <p id="form-error" class="form-error" role="alert"></p>
