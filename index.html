@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <title>Расходы — личный учёт</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="page-header">
+        <div class="brand"><span class="brand-icon" aria-hidden="true">↗</span> расходы<span class="brand-dot">.</span></div>
+        <span class="header-note">Личный учёт · без лишнего</span>
+      </header>
+
+      <section class="intro">
+        <p class="eyebrow">ВАШИ ФИНАНСЫ, ПОНЯТНО</p>
+        <h1>Маленькие траты.<br /><span>Полная картина.</span></h1>
+        <p class="subtitle">Записывайте повседневные расходы и держите бюджет в поле зрения.</p>
+      </section>
+
+      <section class="month-card" aria-labelledby="month-heading">
+        <div><p id="month-heading" class="month-label">Расходы за текущий месяц</p><p id="month-total" class="month-total">0 ₸</p><p id="month-count" class="month-count">Пока без трат</p></div>
+        <div class="month-right"><span id="current-month" class="month-badge"></span><div class="decor-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      </section>
+
+      <section class="form-card" aria-labelledby="form-heading">
+        <div class="section-heading"><span class="section-icon" aria-hidden="true">+</span><div><h2 id="form-heading">Добавить трату</h2><p>Пара деталей — и расход учтён.</p></div></div>
+        <form id="expense-form">
+          <div class="form-grid">
+            <div class="field"><label for="amount">Сумма <span class="required">*</span></label><div class="amount-wrap"><input id="amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" maxlength="16" required autocomplete="off" aria-describedby="form-error" /><span>₸</span></div></div>
+            <div class="field"><label for="category">Категория <span class="required">*</span></label><select id="category" name="category" required><option value="Еда">Еда</option><option value="Транспорт">Транспорт</option><option value="Дом">Дом</option><option value="Другое">Другое</option></select></div>
+            <div class="field"><label for="date">Дата <span class="required">*</span></label><input id="date" name="date" type="date" required /></div>
+            <div class="field comment-field"><label for="comment">Комментарий <span class="optional">необязательно</span></label><input id="comment" name="comment" type="text" placeholder="Например, кофе по дороге на работу" maxlength="250" /></div>
+          </div>
+          <p id="form-error" class="form-error" role="alert"></p>
+          <div class="form-footer"><span class="storage-note"><span aria-hidden="true">◈</span> Данные сохраняются в этом браузере</span><button type="submit"><span aria-hidden="true">+</span> Добавить трату</button></div>
+        </form>
+      </section>
+
+      <section class="expenses-section" aria-labelledby="expenses-heading">
+        <div class="list-heading"><div><h2 id="expenses-heading">История трат <span id="expense-count" class="count-badge">0</span></h2><p>Всё, что вы записали, в одном месте.</p></div><span class="sort-note">↓ Сначала новые</span></div>
+        <div id="expense-list" class="expense-list"></div>
+      </section>
+      <p id="status" class="sr-only" role="status" aria-live="polite"></p>
+      <footer class="page-footer">Больше ясности. Меньше забот.</footer>
+    </main>
+  </body>
+</html>
