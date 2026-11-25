@@ -44,6 +44,22 @@
         </form>
       </section>
 
+      <section class="category-card" aria-labelledby="category-heading">
+        <h2 id="category-heading">Итоги по категориям</h2>
+        <p id="category-period" class="category-period">Всё время</p>
+        <div class="category-layout">
+          <div class="category-chart">
+            <svg id="category-chart-svg" viewBox="0 0 240 240" role="img" aria-label="Расходы по категориям">
+              <circle cx="120" cy="120" r="96" fill="none" stroke="#E2D9C8" stroke-width="24" />
+              <g id="category-segments" transform="rotate(-90 120 120)"></g>
+            </svg>
+            <div class="category-center"><span>Всего за период</span><strong id="category-total">0 ₸</strong></div>
+          </div>
+          <ul id="category-totals" class="category-totals"></ul>
+        </div>
+        <p id="category-empty" class="category-empty">За выбранный период трат нет</p>
+      </section>
+
       <section class="expenses-section" aria-labelledby="expenses-heading">
         <div class="list-heading"><div><h2 id="expenses-heading" tabindex="-1">История трат <span id="expense-count" class="count-badge">0</span></h2><p>Всё, что вы записали, в одном месте.</p></div><span class="sort-note">↓ Сначала новые</span></div>
         <div id="expense-list" class="expense-list"></div>

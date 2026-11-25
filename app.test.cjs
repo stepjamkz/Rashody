@@ -7,10 +7,10 @@ const source = fs.readFileSync(`${__dirname}/app.js`, 'utf8');
 
 function setup(saved = [], clock = Date) {
   class Element {
-    constructor() { this.children = []; this.value = ''; this.textContent = ''; this.listeners = {}; }
+    constructor() { this.children = []; this.value = ''; this.textContent = ''; this.listeners = {}; this.style = {}; this.attributes = {}; }
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children = nodes; }
-    setAttribute() {}
+    setAttribute(key, value) { this.attributes[key] = value; }
     addEventListener(name, callback) { this.listeners[name] = callback; }
     focus() {}
     showModal() { this.open = true; }
@@ -25,7 +25,7 @@ function setup(saved = [], clock = Date) {
   let failSave = false;
   const windowListeners = {};
   vm.runInNewContext(source, {
-    document: { querySelector: get, createElement: () => new Element(), createDocumentFragment: () => new Element() },
+    document: { querySelector: get, createElement: () => new Element(), createElementNS: () => new Element(), createDocumentFragment: () => new Element() },
     localStorage: { getItem: () => stored, setItem: (_, value) => { if (failSave) throw Error('Full'); stored = value; } },
     window: { addEventListener(name, callback) { windowListeners[name] = callback; } }, Intl, Date: clock,
   });
@@ -300,4 +300,113 @@ test('saving an edit preserves unrelated records added by another tab', () => {
   app.submit('20');
   assert.equal(app.read().length, 2);
   assert.equal(app.get('#month-total').textContent, '50 ₸');
+});
+
+function categoryRows(app) {
+  return app.get('#category-totals').children.map(row => ({
+    name: row.children[0].children[1].textContent,
+    color: row.children[0].children[0].style.backgroundColor,
+    amount: row.children[1].children[0].textContent.replace(/\s/g, ' '),
+    percent: row.children[1].children[1].textContent,
+  }));
+}
+
+test('category totals match 19500 example, fixed palette, and exact segment proportions', () => {
+  const app = setup();
+  app.submit('5000', undefined, 'Еда');
+  app.submit('2500', undefined, 'Транспорт');
+  app.submit('12000', undefined, 'Дом');
+  assert.equal(app.get('#category-total').textContent.replace(/\s/g, ' '), '19 500 ₸');
+  assert.deepEqual(categoryRows(app), [
+    { name: 'Еда', color: '#1B4332', amount: '5 000 ₸', percent: '25,6%' },
+    { name: 'Транспорт', color: '#B08D57', amount: '2 500 ₸', percent: '12,8%' },
+    { name: 'Дом', color: '#4A4E48', amount: '12 000 ₸', percent: '61,5%' },
+    { name: 'Другое', color: '#A65D46', amount: '0 ₸', percent: '0,0%' },
+  ]);
+  const segments = app.get('#category-segments').children;
+  assert.equal(segments.length, 3);
+  const shares = segments.map(segment => Number(segment.attributes['stroke-dasharray'].split(' ')[0]));
+  assert.ok(Math.abs(shares.reduce((a, b) => a + b, 0) - 100) < 1e-10);
+  assert.ok(Math.abs(shares[0] - 5000 / 19500 * 100) < 1e-10);
+  assert.notEqual(shares[0], 25.6);
+  assert.equal(segments[1].attributes.stroke, '#B08D57');
+  assert.equal(app.get('#category-empty').hidden, true);
+  assert.equal(setup(app.read()).get('#category-total').textContent, app.get('#category-total').textContent);
+});
+
+test('category totals use inclusive period boundaries, excluding future dates', () => {
+  class Clock extends Date { constructor(...args) { super(...(args.length ? args : ['2026-11-25T12:00:00'])); } }
+  const app = setup([], Clock);
+  app.submit('3000', '2026-11-25', 'Еда');
+  app.submit('1000', '2026-11-19', 'Транспорт');
+  app.submit('6000', '2026-11-18', 'Дом');
+  const monthly = app.get('#month-total').textContent;
+  app.period(7);
+  assert.equal(app.get('#category-period').textContent, 'С 19.11.2026 по 25.11.2026');
+  assert.equal(app.get('#category-total').textContent.replace(/\s/g, ' '), '4 000 ₸');
+  assert.deepEqual(categoryRows(app).map(row => row.percent), ['75,0%', '25,0%', '0,0%', '0,0%']);
+  app.period(14);
+  assert.deepEqual(categoryRows(app).map(row => row.percent), ['30,0%', '10,0%', '60,0%', '0,0%']);
+  assert.equal(app.get('#month-total').textContent, monthly);
+  app.submit('500', '2026-11-26', 'Другое');
+  assert.equal(categoryRows(app)[3].amount, '0 ₸');
+  app.period(0);
+  assert.equal(categoryRows(app)[3].amount, '500 ₸');
+  for (const [days, expected] of [[1, 3000], [7, 4000], [14, 10000], [30, 10000]]) {
+    app.period(days);
+    assert.equal(app.get('#category-total').textContent.replace(/\s/g, ''), `${expected}₸`);
+  }
+});
+
+test('empty categories, a full circle and rounding thirds are safe', () => {
+  const app = setup();
+  assert.equal(app.get('#category-empty').hidden, false);
+  assert.equal(app.get('#category-total').textContent, '0 ₸');
+  assert.equal(app.get('#category-segments').children.length, 0);
+  assert.ok(categoryRows(app).every(row => row.amount === '0 ₸' && row.percent === '0,0%'));
+  app.submit('2000', undefined, 'Другое');
+  const circle = app.get('#category-segments').children[0];
+  assert.equal(circle.attributes.stroke, '#A65D46');
+  assert.equal(circle.attributes['stroke-dasharray'], '100 0');
+  assert.equal(categoryRows(app)[3].percent, '100,0%');
+  const thirds = setup();
+  for (const category of ['Еда', 'Транспорт', 'Дом']) thirds.submit('1000', undefined, category);
+  assert.deepEqual(categoryRows(thirds).map(row => row.percent), ['33,3%', '33,3%', '33,3%', '0,0%']);
+});
+
+test('category totals update after edit, date change, deletion and external writes', () => {
+  const app = setup(); app.submit('100', undefined, 'Транспорт');
+  app.edit(); app.submit('150', undefined, 'Еда');
+  assert.equal(categoryRows(app)[0].amount, '150 ₸');
+  assert.equal(categoryRows(app)[1].amount, '0 ₸');
+  app.period(7); app.edit(); app.submit('150', '2020-01-01', 'Еда');
+  assert.equal(app.get('#category-total').textContent, '0 ₸');
+  assert.equal(app.get('#category-empty').hidden, false);
+  app.period(0); app.remove(); app.click('#confirm-delete');
+  assert.equal(app.get('#category-total').textContent, '0 ₸');
+  assert.equal(app.get('#category-segments').children.length, 0);
+  app.storageEvent([{ cents: 125050, category: 'Дом', date: '2026-11-25', comment: '', createdAt: 1 }]);
+  assert.equal(categoryRows(app)[2].amount, '1 250,50 ₸');
+});
+
+test('category calculations preserve cents and large totals beyond safe Number sums', () => {
+  const saved = [1, 2].map(id => ({ id: String(id), cents: Number.MAX_SAFE_INTEGER, category: 'Дом', date: '2026-11-25', comment: '', createdAt: id }));
+  const app = setup(saved);
+  assert.equal(app.get('#category-total').textContent.replace(/\s/g, ' '), '180 143 985 094 819,82 ₸');
+  assert.equal(app.get('#category-total').className, 'category-total-long');
+  assert.equal(categoryRows(app)[2].percent, '100,0%');
+  assert.equal(app.get('#category-segments').children[0].attributes['stroke-dasharray'], '100 0');
+  const decimals = setup(); decimals.submit('0,10'); decimals.submit('0,20');
+  assert.equal(decimals.get('#category-total').textContent, '0,30 ₸');
+});
+
+test('failed writes do not change category totals', () => {
+  const app = setup(); app.submit('100', undefined, 'Еда');
+  const before = categoryRows(app);
+  app.failSave(); app.edit(); app.submit('200', undefined, 'Дом');
+  assert.deepEqual(categoryRows(app), before);
+  app.remove(); app.click('#confirm-delete');
+  assert.deepEqual(categoryRows(app), before);
+  app.click('#cancel-delete'); app.click('#cancel-edit'); app.submit('300');
+  assert.deepEqual(categoryRows(app), before);
 });

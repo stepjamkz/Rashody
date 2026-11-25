@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'rashody.expenses.v1';
   const categories = { 'Еда': ['♧', 'food'], 'Транспорт': ['↗', 'transport'], 'Дом': ['⌂', 'home'], 'Другое': ['◇', 'other'] };
+  const categoryColors = { 'Еда': '#1B4332', 'Транспорт': '#B08D57', 'Дом': '#4A4E48', 'Другое': '#A65D46' };
   const form = document.querySelector('#expense-form');
   const amountInput = document.querySelector('#amount');
   const dateInput = document.querySelector('#date');
@@ -118,6 +119,53 @@
     return node;
   }
 
+  function formatCents(cents) {
+    const whole = new Intl.NumberFormat('ru-RU').format(cents / 100n);
+    const fraction = cents % 100n;
+    return `${whole}${fraction ? ',' + String(fraction).padStart(2, '0') : ''} ₸`;
+  }
+
+  function renderCategoryTotals(visible, periodLabel) {
+    const sums = Object.fromEntries(Object.keys(categories).map(category => [category, 0n]));
+    for (const item of visible) sums[item.category] += BigInt(item.cents);
+    const total = Object.values(sums).reduce((sum, cents) => sum + cents, 0n);
+    const amount = formatCents(total);
+    document.querySelector('#category-total').textContent = amount;
+    document.querySelector('#category-total').className = amount.length > 16 ? 'category-total-long' : '';
+    document.querySelector('#category-period').textContent = periodLabel;
+    document.querySelector('#category-empty').hidden = total !== 0n;
+    document.querySelector('#category-chart-svg').setAttribute('aria-label', `Расходы по категориям. ${periodLabel}. Всего ${amount}. Подробные суммы и доли — в списке.`);
+    const list = document.querySelector('#category-totals');
+    const segments = document.querySelector('#category-segments');
+    list.replaceChildren();
+    segments.replaceChildren();
+    let offset = 0;
+    for (const category of Object.keys(categories)) {
+      const cents = sums[category];
+      // Round labels in tenths of a percent; segment geometry uses unrounded ratios.
+      const tenths = total ? (cents * 1000n + total / 2n) / total : 0n;
+      const percent = `${tenths / 10n},${tenths % 10n}%`;
+      const row = element('li', 'category-total-row');
+      const name = element('span', 'category-name');
+      const marker = element('span', 'category-marker');
+      marker.style.backgroundColor = categoryColors[category];
+      marker.setAttribute('aria-hidden', 'true');
+      name.append(marker, element('span', '', category));
+      const values = element('div', 'category-values');
+      values.append(element('span', 'category-sum', formatCents(cents)), element('span', 'category-percent', percent));
+      row.append(name, values);
+      list.append(row);
+      if (!cents) continue;
+      const share = Number(cents) / Number(total) * 100;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      const attributes = { cx: 120, cy: 120, r: 96, fill: 'none', stroke: categoryColors[category], 'stroke-width': 24, pathLength: 100,
+        'stroke-dasharray': `${share} ${100 - share}`, 'stroke-dashoffset': -offset };
+      for (const [key, value] of Object.entries(attributes)) circle.setAttribute(key, String(value));
+      segments.append(circle);
+      offset += share;
+    }
+  }
+
   function render() {
     const currentMonth = localDate().slice(0, 7);
     const monthly = expenses.filter(item => item.date.startsWith(currentMonth));
@@ -132,6 +180,7 @@
     start.setDate(start.getDate() - Math.max(0, periodDays - 1));
     const startDate = localDate(start);
     const visible = periodDays ? expenses.filter(item => item.date >= startDate && item.date <= today) : expenses;
+    renderCategoryTotals(visible, periodDays ? `С ${startDate.split('-').reverse().join('.')} по ${today.split('-').reverse().join('.')}` : 'Всё время');
     document.querySelector('#expense-count').textContent = periodDays ? `${visible.length} из ${expenses.length}` : expenses.length;
     document.querySelector('#period-hint').textContent = periodDays
       ? `С ${startDate.split('-').reverse().join('.')} по ${today.split('-').reverse().join('.')}. Итог сверху — за текущий месяц.`
