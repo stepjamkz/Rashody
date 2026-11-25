@@ -47,16 +47,23 @@
             <div class="field comment-field"><label for="comment">Комментарий <span class="optional">необязательно</span></label><input id="comment" name="comment" type="text" placeholder="Например, кофе по дороге на работу" maxlength="250" /></div>
           </div>
           <p id="form-error" class="form-error" role="alert"></p>
-          <div class="form-footer"><span class="storage-note"><span aria-hidden="true">◈</span> Данные сохраняются в этом браузере</span><button type="submit"><span aria-hidden="true">+</span> Добавить трату</button></div>
+          <div class="form-footer"><span class="storage-note"><span aria-hidden="true">◈</span> Данные сохраняются в этом браузере</span><div class="form-actions"><button id="cancel-edit" class="secondary-button" type="button" hidden>Отмена</button><button id="submit-expense" type="submit">Добавить трату</button></div></div>
         </form>
       </section>
 
       <section class="expenses-section" aria-labelledby="expenses-heading">
-        <div class="list-heading"><div><h2 id="expenses-heading">История трат <span id="expense-count" class="count-badge">0</span></h2><p>Всё, что вы записали, в одном месте.</p></div><span class="sort-note">↓ Сначала новые</span></div>
+        <div class="list-heading"><div><h2 id="expenses-heading" tabindex="-1">История трат <span id="expense-count" class="count-badge">0</span></h2><p>Всё, что вы записали, в одном месте.</p></div><span class="sort-note">↓ Сначала новые</span></div>
         <div id="expense-list" class="expense-list"></div>
       </section>
-      <p id="status" class="sr-only" role="status" aria-live="polite"></p>
+      <p id="status" class="action-status" role="status" aria-live="polite"></p>
       <footer class="page-footer">Больше ясности. Меньше забот.</footer>
     </main>
+    <dialog id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-details delete-warning">
+      <h2 id="delete-title">Удалить трату?</h2>
+      <p id="delete-details"></p>
+      <p id="delete-warning">Удаление нельзя отменить.</p>
+      <p id="delete-error" class="form-error" role="alert"></p>
+      <div class="dialog-actions"><button id="cancel-delete" class="secondary-button" type="button" autofocus>Отмена</button><button id="confirm-delete" class="delete-button" type="button">Удалить</button></div>
+    </dialog>
   </body>
 </html>

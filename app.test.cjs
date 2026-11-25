@@ -13,6 +13,8 @@ function setup(saved = [], clock = Date) {
     setAttribute() {}
     addEventListener(name, callback) { this.listeners[name] = callback; }
     focus() {}
+    showModal() { this.open = true; }
+    close() { this.open = false; this.listeners.close?.(); }
   }
   const nodes = {};
   const get = id => nodes[id] ||= new Element();
@@ -31,6 +33,11 @@ function setup(saved = [], clock = Date) {
     get, read: () => JSON.parse(stored), failSave: () => { failSave = true; },
     storageEvent(saved, key = 'rashody.expenses.v1') { stored = JSON.stringify(saved); windowListeners.storage({ key }); },
     focus() { windowListeners.focus(); },
+    rows() { return get('#expense-list').children[0].children; },
+    edit(index = 0) { this.rows()[index].children[3].children[0].listeners.click(); },
+    remove(index = 0) { this.rows()[index].children[3].children[1].listeners.click(); },
+    click(id) { get(id).listeners.click(); },
+    external(saved) { stored = JSON.stringify(saved); },
     period(days) {
       const buttons = [0, 1, 7, 14, 30].map(value => ({ dataset: { days: String(value) }, setAttribute() {} }));
       const selected = buttons.find(button => Number(button.dataset.days) === days);
@@ -126,7 +133,7 @@ test('updates records from another tab and ignores invalid external data', () =>
   const app = setup();
   app.submit('10');
   const saved = app.read();
-  app.storageEvent([...saved, { ...saved[0], cents: 2000 }]);
+  app.storageEvent([...saved, { ...saved[0], id: 'other-tab-record', cents: 2000 }]);
   assert.equal(app.get('#month-total').textContent, '30 ₸');
   app.storageEvent([{ cents: -1 }]);
   assert.equal(app.get('#month-total').textContent, '30 ₸');
@@ -183,4 +190,114 @@ test('recalculates the current month when the page regains focus', () => {
   today = '2026-12-01T12:00:00';
   app.focus();
   assert.equal(app.get('#month-total').textContent, '0 ₸');
+});
+
+test('edits and deletes with totals 19500, 20000, 15000 and restores the result', () => {
+  const app = setup();
+  for (const amount of ['5000', '2500', '12000']) app.submit(amount);
+  const target = app.read().find(item => item.cents === 250000);
+  const index = app.rows().findIndex(row => row.children[2].children[0].textContent.replace(/\s/g, '') === '2500₸');
+  app.edit(index);
+  assert.equal(app.get('#form-heading').textContent, 'Изменить трату');
+  assert.equal(app.get('#cancel-edit').hidden, false);
+  app.submit('3000', target.date, 'Дом', 'Исправлено');
+  assert.equal(app.read().length, 3);
+  assert.equal(app.read().find(item => item.id === target.id).createdAt, target.createdAt);
+  assert.equal(app.get('#month-total').textContent.replace(/\s/g, ' '), '20 000 ₸');
+  assert.equal(app.get('#status').textContent, 'Трата изменена');
+  const removeIndex = app.rows().findIndex(row => row.children[2].children[0].textContent.replace(/\s/g, '') === '5000₸');
+  app.remove(removeIndex);
+  assert.equal(app.get('#delete-dialog').open, true);
+  assert.equal(app.read().length, 3);
+  assert.match(app.get('#delete-details').textContent.replace(/\s/g, ''), /5000₸/);
+  app.click('#confirm-delete');
+  assert.equal(app.get('#delete-dialog').open, false);
+  assert.equal(app.get('#status').textContent, 'Трата удалена');
+  const restored = setup(app.read());
+  assert.equal(restored.read().length, 2);
+  assert.equal(restored.get('#month-total').textContent.replace(/\s/g, ' '), '15 000 ₸');
+});
+
+test('cancel editing, cancel deletion and closing the dialog preserve saved data', () => {
+  const app = setup(); app.submit('10'); app.submit('20');
+  const saved = app.read();
+  app.edit(); app.get('#amount').value = '999';
+  app.edit(1);
+  assert.equal(app.get('#amount').value, '999');
+  assert.match(app.get('#form-error').textContent, /Сначала сохраните/);
+  app.click('#cancel-edit');
+  assert.deepEqual(app.read(), saved);
+  assert.equal(app.get('#cancel-edit').hidden, true);
+  app.remove(); app.click('#cancel-delete');
+  assert.deepEqual(app.read(), saved);
+  app.remove(); app.get('#delete-dialog').close();
+  assert.deepEqual(app.read(), saved);
+});
+
+test('identical legacy records remain independently editable and deletable', () => {
+  const item = { cents: 1230, category: 'Еда', date: '2026-11-25', comment: '', createdAt: 1 };
+  const app = setup([item, { ...item }]);
+  app.edit(0); app.submit('15', item.date);
+  assert.equal(app.read().length, 2);
+  assert.equal(app.read()[0].cents, 1500);
+  assert.equal(app.read()[1].cents, 1230);
+  assert.notEqual(app.read()[0].id, app.read()[1].id);
+  app.remove(1); app.click('#confirm-delete');
+  assert.equal(app.read().length, 1);
+  assert.equal(app.read()[0].cents, 1500);
+});
+
+test('invalid edit and storage failures preserve original records and entered values', () => {
+  const app = setup(); app.submit('100');
+  const saved = app.read(); app.edit();
+  for (const amount of ['', '0', '-10', 'text']) app.submit(amount);
+  app.submit('10', '');
+  assert.deepEqual(app.read(), saved);
+  app.failSave(); app.submit('200', saved[0].date, 'Дом', 'Правки');
+  assert.deepEqual(app.read(), saved);
+  assert.equal(app.get('#amount').value, '200');
+  assert.equal(app.get('#expense-form').elements.comment.value, 'Правки');
+  assert.equal(app.get('#month-total').textContent, '100 ₸');
+  app.remove(); app.click('#confirm-delete');
+  assert.deepEqual(app.read(), saved);
+  assert.equal(app.get('#delete-dialog').open, true);
+  assert.match(app.get('#delete-error').textContent, /Не удалось сохранить/);
+});
+
+test('date edits reapply filters and deletion shows empty states', () => {
+  class Clock extends Date { constructor(...args) { super(...(args.length ? args : ['2026-11-25T12:00:00'])); } }
+  const app = setup([], Clock); app.submit('5000'); app.period(7);
+  app.edit(); app.submit('5000', '2026-10-31');
+  assert.equal(app.get('#expense-count').textContent, '0 из 1');
+  assert.equal(app.get('#month-total').textContent, '0 ₸');
+  assert.equal(app.get('#expense-list').children[0].children[1].textContent, 'За этот период трат нет');
+  app.period(0); app.edit(); app.remove(); app.click('#confirm-delete');
+  assert.equal(app.read().length, 0);
+  assert.equal(app.get('#form-heading').textContent, 'Добавить трату');
+  assert.equal(app.get('#expense-list').children[0].children[1].textContent, 'Здесь начнётся ваша история');
+});
+
+test('external changes and removals cannot be overwritten by stale edits or deletion', () => {
+  for (const remove of [false, true]) {
+    const app = setup(); app.submit('10'); app.edit();
+    const latest = remove ? [] : [{ ...app.read()[0], cents: 2000 }];
+    app.storageEvent(latest);
+    assert.match(app.get('#form-error').textContent, /другой вкладке/);
+    app.submit('99');
+    assert.deepEqual(app.read(), latest);
+  }
+  const app = setup(); app.submit('10'); app.remove();
+  const latest = [{ ...app.read()[0], comment: 'Из другой вкладки' }];
+  app.external(latest); app.click('#confirm-delete');
+  assert.deepEqual(app.read(), latest);
+  assert.match(app.get('#delete-error').textContent, /другой вкладке/);
+});
+
+test('saving an edit preserves unrelated records added by another tab', () => {
+  const app = setup(); app.submit('10'); app.edit();
+  const saved = app.read();
+  app.external([...saved, { ...saved[0], id: 'external', cents: 3000 }]);
+  app.submit('20');
+  assert.equal(app.read().length, 2);
+  assert.equal(app.get('#month-total').textContent, '50 ₸');
 });
