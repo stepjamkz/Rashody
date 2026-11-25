@@ -10,16 +10,9 @@
   </head>
   <body>
     <main class="app">
-      <header class="page-header">
-        <div class="brand"><span class="brand-icon" aria-hidden="true">↗</span> расходы<span class="brand-dot">.</span></div>
-        <span class="header-note">Личный учёт · без лишнего</span>
-      </header>
-
-      <section class="intro">
-        <p class="eyebrow">ВАШИ ФИНАНСЫ, ПОНЯТНО</p>
+      <header class="intro">
         <h1>Ваши расходы <span>под вашим контролем</span></h1>
-        <p class="subtitle">Записывайте повседневные расходы и держите бюджет в поле зрения.</p>
-      </section>
+      </header>
 
       <section class="month-card" aria-labelledby="month-heading">
         <div><p id="month-heading" class="month-label">Расходы за текущий месяц</p><p id="month-total" class="month-total">0 ₸</p><p id="month-count" class="month-count">Пока без трат</p></div>
@@ -27,7 +20,7 @@
       </section>
 
       <section class="form-card" aria-labelledby="form-heading">
-        <div class="section-heading"><span class="section-icon" aria-hidden="true">+</span><div><h2 id="form-heading">Добавить трату</h2><p>Пара деталей — и расход учтён.</p></div></div>
+        <div class="section-heading"><span class="section-icon" aria-hidden="true">+</span><h2 id="form-heading">Добавить трату</h2></div>
         <form id="expense-form">
           <div class="form-grid">
             <div class="field"><label for="amount">Сумма <span class="required">*</span></label><div class="amount-wrap"><input id="amount" name="amount" type="text" inputmode="decimal" placeholder="0,00" maxlength="16" required autocomplete="off" aria-describedby="form-error" /><span>₸</span></div></div>
